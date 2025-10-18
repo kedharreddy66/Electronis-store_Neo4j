@@ -1,0 +1,5 @@
+category_id,name,parent_id
+1,Laptops,
+2,Smartphones,
+3,Accessories,
+4,Gaming Laptops,1.0

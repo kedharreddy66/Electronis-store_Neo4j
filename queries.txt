@@ -1,0 +1,71 @@
+// -----------------------------------------------------------
+// Cypher Query Use-Cases and Analytics Queries
+// -----------------------------------------------------------
+
+// 1. Products priced above category average
+MATCH (p:Product)-[:BELONGS_TO]->(c:Category)
+WITH c, avg(toFloat(p.unit_price)) AS avgPrice
+MATCH (p:Product)-[:BELONGS_TO]->(c)
+WHERE toFloat(p.unit_price) > avgPrice
+RETURN c.name AS category, p.name AS product, p.unit_price AS price, round(avgPrice,2) AS category_avg
+ORDER BY category, price DESC;
+
+// 2. Order totals with customer & staff
+MATCH (o:Order)-[ri:CONTAINS]->(p:Product)
+WITH o, sum( toFloat(coalesce(ri.unit_price_at_sale, p.unit_price)) * toInteger(coalesce(ri.quantity,1)) ) AS order_total
+OPTIONAL MATCH (c:Customer)-[:PLACED]->(o)
+OPTIONAL MATCH (s:Staff)-[:PROCESSED]->(o)
+RETURN o.order_id, c.first_name + ' ' + c.last_name AS customer, s.staff_id AS processed_by, round(order_total,2) AS total
+ORDER BY total DESC;
+
+// 3. Customers who bought both online & in-store
+MATCH (c:Customer)-[:PLACED]->(o:Order)
+WITH c, CASE WHEN coalesce(o.store_id,'') = '' THEN 'online' ELSE 'instore' END AS channel
+WITH c, collect(DISTINCT channel) AS channels
+WHERE 'online' IN channels AND 'instore' IN channels
+RETURN c.customer_id, c.first_name + ' ' + c.last_name AS name, channels;
+
+// 4. Frequently bought together product pairs
+MATCH (o:Order)-[:CONTAINS]->(p:Product)
+WITH o.order_id AS oid, collect(p.product_id) AS products
+UNWIND products AS p1
+UNWIND products AS p2
+WITH oid, p1, p2
+WHERE p1 < p2
+WITH p1, p2, count(*) AS together
+MATCH (a:Product {product_id:p1})
+MATCH (b:Product {product_id:p2})
+RETURN a.name AS product1, b.name AS product2, together
+ORDER BY together DESC;
+
+// -----------------------------------------------------------
+// 5. Analytics — Centrality (Eigenvector)
+// -----------------------------------------------------------
+CALL gds.graph.drop('custProd', false);
+CALL gds.graph.project.cypher(
+  'custProd',
+  'MATCH (c:Customer) RETURN id(c) AS id, labels(c) AS labels UNION MATCH (p:Product) RETURN id(p) AS id, labels(p) AS labels',
+  'MATCH (c:Customer)-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product) RETURN id(c) AS source, id(p) AS target, 1.0 AS weight'
+);
+CALL gds.eigenvector.stream('custProd')
+YIELD nodeId, score
+WITH gds.util.asNode(nodeId) AS n, score
+RETURN labels(n)[0] AS label, coalesce(n.name, n.email, n.product_id) AS node, round(score,4) AS score
+ORDER BY score DESC
+LIMIT 15;
+
+// -----------------------------------------------------------
+// 6. Analytics — Node Similarity (Product-to-Product)
+// -----------------------------------------------------------
+CALL gds.graph.drop('prodCust', false);
+CALL gds.graph.project.cypher(
+  'prodCust',
+  'MATCH (p:Product) RETURN id(p) AS id, labels(p) AS labels UNION MATCH (c:Customer) RETURN id(c) AS id, labels(c) AS labels',
+  'MATCH (p:Product)<-[:CONTAINS]-(:Order)<-[:PLACED]-(c:Customer) RETURN id(p) AS source, id(c) AS target'
+);
+CALL gds.nodeSimilarity.stream('prodCust', { nodeLabels: ['Product'], topK: 5 })
+YIELD node1, node2, similarity
+WITH gds.util.asNode(node1) AS p1, gds.util.asNode(node2) AS p2, similarity
+RETURN p1.product_id AS product1, p1.name AS name1, p2.product_id AS product2, p2.name AS name2, round(similarity,3) AS similarity
+ORDER BY similarity DESC
+LIMIT 20;

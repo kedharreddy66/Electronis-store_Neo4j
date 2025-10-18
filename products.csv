@@ -1,0 +1,5 @@
+productID,productName,price,supplierID
+P1,Laptop,1200.0,S1
+P2,Smartphone,800.0,S1
+P3,Tablet,400.0,S2
+P4,Monitor,300.0,S3

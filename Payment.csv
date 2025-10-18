@@ -1,0 +1,4 @@
+payment_id,order_id,method,amount,txn_ref
+1,1001,Card,1538.9,TXN-ABC-1001
+2,1002,Cash,1999.0,TXN-ABC-1002
+3,1003,OnlineWallet,918.95,TXN-ABC-1003
