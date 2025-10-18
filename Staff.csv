@@ -1,0 +1,4 @@
+staff_id,store_id,first_name,last_name,role,hire_date,salary
+1,1,Sam,Lee,Manager,2022-03-01,82000.0
+2,1,Priya,Patel,Cashier,2023-07-15,54000.0
+3,2,Tom,Ng,Cashier,2024-01-20,52000.0

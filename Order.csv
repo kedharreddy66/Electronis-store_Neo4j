@@ -1,0 +1,4 @@
+order_id,store_id,customer_id,staff_id,order_datetime,channel
+1001,1,1,2,2025-09-10 10:15:00,InStore
+1002,1,2,1,2025-09-11 16:40:00,InStore
+1003,2,2,3,2025-09-12 12:05:00,Online
